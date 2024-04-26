@@ -2,6 +2,8 @@ import telegram
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
 import openpyxl
+import requests
+from io import BytesIO
 
 # Diccionario para asociar emojis a encabezados
 emojis_encabezados = {
@@ -22,9 +24,10 @@ emojis_encabezados = {
     'MAC DATOS': '🔒'
 }
 
-# Función para leer el archivo Excel
-def leer_excel(archivo, palabra_busqueda):
-    workbook = openpyxl.load_workbook(archivo)
+# Función para leer el archivo Excel desde una URL
+def leer_excel_desde_url(url, palabra_busqueda):
+    response = requests.get(url)
+    workbook = openpyxl.load_workbook(BytesIO(response.content))
     encabezados_datos = []
 
     # Iterar sobre todas las hojas
@@ -48,9 +51,9 @@ async def buscar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(chat_id=update.effective_chat.id, text="Por favor, proporciona una palabra para buscar después del comando.")
         return
     
-    # Ruta del archivo Excel
-    ruta_archivo = "C:\\Users\\Doyeck\\Desktop\\Doyeck\\bd bot.xlsx"
-    encabezados_datos = leer_excel(ruta_archivo, palabra_busqueda)
+    # URL del archivo Excel
+    url_archivo = "https://myawsbucketlazerboy.s3.us-east-2.amazonaws.com/bd+bot.xlsx"
+    encabezados_datos = leer_excel_desde_url(url_archivo, palabra_busqueda)
     
     mensaje = 'Resultados para "{}":\n\n'.format(palabra_busqueda)
     if encabezados_datos:
