@@ -23,20 +23,21 @@ emojis_encabezados = {
     'MAC DATOS': '🔒'
 }
 
-# Función para leer el archivo Excel de forma eficiente
+# Función para leer el archivo Excel
 def leer_excel(archivo, palabra_busqueda):
+    workbook = openpyxl.load_workbook(archivo)
     encabezados_datos = []
 
-    # Abrir el archivo Excel
-    with openpyxl.load_workbook(archivo) as workbook:
-        # Iterar sobre todas las hojas
-        for hoja in workbook.sheetnames:
-            current_sheet = workbook[hoja]
+    # Iterar sobre todas las hojas
+    for hoja in workbook.sheetnames:
+        current_sheet = workbook[hoja]
+        current_encabezados = [celda.value for celda in current_sheet[1]]  # Obtener encabezados de la hoja
 
-            # Iterar sobre todas las filas de la hoja
-            for fila in current_sheet.iter_rows(min_row=2, max_row=current_sheet.max_row, values_only=True):
-                if any(palabra_busqueda.lower() in str(valor).lower() for valor in fila):
-                    encabezados_datos.append((current_sheet[1], fila))  # Agregar encabezados y datos
+        # Iterar sobre todas las filas de la hoja
+        for fila in range(2, current_sheet.max_row + 1):  # Comenzar desde la segunda fila para evitar los encabezados
+            fila_datos = [current_sheet.cell(row=fila, column=columna).value for columna in range(1, current_sheet.max_column + 1)]
+            if any(palabra_busqueda.lower() in str(valor).lower() for valor in fila_datos):
+                encabezados_datos.append((current_encabezados, fila_datos))  # Agregar encabezados y datos
 
     return encabezados_datos
 
