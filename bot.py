@@ -3,7 +3,6 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
 import openpyxl
 import requests
-from io import BytesIO
 
 # Diccionario para asociar emojis a encabezados
 emojis_encabezados = {
@@ -24,10 +23,9 @@ emojis_encabezados = {
     'MAC DATOS': '🔒'
 }
 
-# Función para leer el archivo Excel desde una URL
-def leer_excel_desde_url(url, palabra_busqueda):
-    response = requests.get(url)
-    workbook = openpyxl.load_workbook(BytesIO(response.content))
+# Función para leer el archivo Excel
+def leer_excel(archivo, palabra_busqueda):
+    workbook = openpyxl.load_workbook(archivo)
     encabezados_datos = []
 
     # Iterar sobre todas las hojas
@@ -51,21 +49,35 @@ async def buscar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(chat_id=update.effective_chat.id, text="Por favor, proporciona una palabra para buscar después del comando.")
         return
     
-    # URL del archivo Excel
-    url_archivo = "https://myawsbucketlazerboy.s3.us-east-2.amazonaws.com/bd+bot.xlsx"
-    encabezados_datos = leer_excel_desde_url(url_archivo, palabra_busqueda)
-    
-    mensaje = 'Resultados para "{}":\n\n'.format(palabra_busqueda)
-    if encabezados_datos:
-        for encabezados, fila_datos in encabezados_datos:
-            for encabezado, valor in zip(encabezados, fila_datos):
-                emoji_encabezado = emojis_encabezados.get(encabezado, '')  # Obtener emoji del encabezado
-                mensaje += '{} {}: {}\n'.format(emoji_encabezado, encabezado, valor)
-            mensaje += '\n'  # Agregar espacio entre cada conjunto de resultados
-    else:
-        mensaje += "No se encontraron resultados."
+    # URL del archivo Excel en Amazon S3
+    url_s3 = "https://myawsbucketlazerboy.s3.us-east-2.amazonaws.com/bd+bot.xlsx"
 
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=mensaje)
+    # Descargar el archivo desde Amazon S3
+    response = requests.get(url_s3)
+
+    # Verificar si la descarga fue exitosa
+    if response.status_code == 200:
+        # Guardar el contenido del archivo en un archivo local
+        with open("bd_bot.xlsx", "wb") as f:
+            f.write(response.content)
+        
+        # Leer el archivo Excel
+        ruta_archivo = "bd_bot.xlsx"
+        encabezados_datos = leer_excel(ruta_archivo, palabra_busqueda)
+        
+        mensaje = 'Resultados para "{}":\n\n'.format(palabra_busqueda)
+        if encabezados_datos:
+            for encabezados, fila_datos in encabezados_datos:
+                for encabezado, valor in zip(encabezados, fila_datos):
+                    emoji_encabezado = emojis_encabezados.get(encabezado, '')  # Obtener emoji del encabezado
+                    mensaje += '{} {}: {}\n'.format(emoji_encabezado, encabezado, valor)
+                mensaje += '\n'  # Agregar espacio entre cada conjunto de resultados
+        else:
+            mensaje += "No se encontraron resultados."
+
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=mensaje)
+    else:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="Error al descargar el archivo de Amazon S3.")
 
 # Función para manejar el comando /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
